@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'scan_normalizer = data_preprocessing.scan_normalizer:main'
         ],
     },
 )
