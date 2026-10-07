@@ -7,7 +7,7 @@ from message_filters import Subscriber, TimeSynchronizer, ApproximateTimeSynchro
 
 class PlannerGymNode(Node):
     def __init__(self):
-        super().__init__()
+        super().__init__('planner_gym_node')
 
         self.scan = None
         self.odom = None
