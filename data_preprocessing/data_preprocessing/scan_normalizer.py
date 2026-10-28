@@ -11,6 +11,12 @@ class ScanNormalizer(Node):
     def __init__(self):
         super().__init__('scan_normalizer')
 
+        self.declare_parameter('use_unit_range', False)
+
+        self.use_unit_range = self.get_parameter(
+            'use_unit_range'
+        ).get_parameter_value().bool_value
+
         self.max_range = float(10.0)
         self.scan = LaserScan()
         self.scan_norm = LaserScan()
@@ -57,12 +63,19 @@ class ScanNormalizer(Node):
         
 
     def normalize_range(self, ranges: list[float]) -> list[float]:
-        for i in range(0,len(ranges)):
-            if math.isinf(ranges[i]):
-                ranges[i] = 1.0
-            else:
-                ranges[i] = ranges[i] / self.max_range
+        if self.use_unit_range:
+            for i in range(0,len(ranges)):
+                if math.isinf(ranges[i]):
+                    ranges[i] = 1.0
+                else:
+                    ranges[i] = ranges[i] / self.max_range
+        else:
+            for i in range(0,len(ranges)):
+                if math.isinf(ranges[i]):
+                    ranges[i] = self.max_range
+
         return ranges
+
 
 
 def main(args=None):
