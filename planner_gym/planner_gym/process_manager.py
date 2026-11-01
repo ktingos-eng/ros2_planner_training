@@ -20,6 +20,7 @@ class ProcessManager(Node):
             "/lifecycle_manager",
             "/robot_state_publisher",
             "/rviz2",
+            "/scan_normalizer"
         }
 
     def run_bringup(self) -> bool:
