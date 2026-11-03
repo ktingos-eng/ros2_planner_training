@@ -39,6 +39,8 @@ class SyncSubscriber(Node):
             )
             self._ats.registerCallback(self.sync_scan_odom_callback)
 
+        self.get_logger().info("Synchronized Callback registered.")
+
     def sync_global_callback(self, scan_msg, odom_msg, metrics_msg):
         self.scan = scan_msg
         self.odom = odom_msg
