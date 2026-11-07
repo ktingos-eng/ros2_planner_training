@@ -13,6 +13,10 @@ from rclpy.executors import MultiThreadedExecutor
 from planner_gym.sync_subscriber import SyncSubscriber
 from planner_gym.process_manager import ProcessManager
 
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
+from planner_interfaces.msg import Metrics
+
 from ament_index_python.packages import get_package_share_directory
 
 class AdaptivePlannerEnv(gym.Env):
@@ -24,6 +28,11 @@ class AdaptivePlannerEnv(gym.Env):
         self.w_min = 0.1
         self.w_max = 10.0
         ##############################
+
+        self.scan : LaserScan = None
+        self.odom : Odometry = None
+        self.metrics : Metrics = None
+
 
         yaml_file = os.path.join(
             get_package_share_directory('ros2_dwa_pso'),
@@ -135,6 +144,45 @@ class AdaptivePlannerEnv(gym.Env):
                 'max': int((self.w_max - value) / self.w_step)
             }
         return wl
+
+    def _get_obs(self):
+        self.scan = self.ss_node.scan
+        self.odom = self.ss_node.odom
+        self.metrics = self.ss_node.metrics
+
+        return {
+            'velocity': np.array(
+                [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                dtype=np.float32
+            ),
+            'heading': np.array(
+                [self.metrics.theta_goal],
+                dtype=np.float32
+            ),
+            'distance': np.array(
+                [self.metrics.dis_goal],
+                dtype=np.float32
+            ),
+            'scan': np.array(
+                self.scan.ranges,
+                dtype=np.float32
+            )
+        }
+
+    def _get_info(self):
+
+        if (self.odom is None) or (self.metrics is None):
+            return None
+
+        return {
+            'v': self.odom.twist.twist.linear.x,
+            'w': self.odom.twist.twist.angular.z,
+            'theta': self.metrics.theta_goal,
+            'occupancy': self.metrics.robot_clearence,
+            'goal_dis': self.metrics.dis_goal,
+            'range_min': min(self.scan.ranges),
+        }
+
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
 
