@@ -217,3 +217,8 @@ class AdaptivePlannerEnv(gym.Env):
                 time.sleep(1)
         else:
             raise RuntimeError(f'Failed to start bringup after {max_tries} attempts.')
+
+        obs = self._get_obs()
+        info = self._get_info()
+
+        return obs, info
