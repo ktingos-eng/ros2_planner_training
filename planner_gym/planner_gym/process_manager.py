@@ -143,7 +143,7 @@ class ProcessManager(Node):
                     self.get_node_names_and_namespaces()
                 )
 
-                if len(set("/dwa_pso_planner").intersection(node_list)) == 0:
+                if "/dwa_pso_planner" not in node_list:
                     return True
 
                 time.sleep(0.1)
