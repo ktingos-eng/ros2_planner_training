@@ -29,9 +29,9 @@ class AdaptivePlannerEnv(gym.Env):
         self.w_max = 10.0
         ##############################
 
-        self.scan : LaserScan = None
-        self.odom : Odometry = None
-        self.metrics : Metrics = None
+        self.scan : Optional[LaserScan] = None
+        self.odom : Optional[Odometry] = None
+        self.metrics : Optional[Metrics] = None
 
 
         yaml_file = os.path.join(
@@ -150,24 +150,44 @@ class AdaptivePlannerEnv(gym.Env):
         self.odom = self.ss_node.odom
         self.metrics = self.ss_node.metrics
 
-        return {
-            'velocity': np.array(
-                [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
-                dtype=np.float32
-            ),
-            'heading': np.array(
-                [self.metrics.theta_goal],
-                dtype=np.float32
-            ),
-            'distance': np.array(
-                [self.metrics.dis_goal],
-                dtype=np.float32
-            ),
-            'scan': np.array(
-                self.scan.ranges,
-                dtype=np.float32
-            )
-        }
+        if self.metrics is None:
+            return {
+                'velocity': np.array(
+                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                    dtype=np.float32
+                ),
+                'heading': np.array(
+                    [self.metrics.theta_goal],
+                    dtype=np.float32
+                ),
+                'distance': np.array(
+                    [self.metrics.dis_goal],
+                    dtype=np.float32
+                ),
+                'scan': np.array(
+                    self.scan.ranges,
+                    dtype=np.float32
+                )
+            }
+        else:
+            return {
+                'velocity': np.array(
+                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                    dtype=np.float32
+                ),
+                'heading': np.array(
+                    [0.0],
+                    dtype=np.float32
+                ),
+                'distance': np.array(
+                    [5.0],
+                    dtype=np.float32
+                ),
+                'scan': np.array(
+                    self.scan.ranges,
+                    dtype=np.float32
+                )
+            }
 
     def _get_info(self):
 
