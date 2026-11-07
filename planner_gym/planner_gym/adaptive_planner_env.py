@@ -4,6 +4,7 @@ import math
 import yaml
 import io
 import os
+import time
 import numpy as np
 import gymnasium as gym
 
@@ -134,3 +135,37 @@ class AdaptivePlannerEnv(gym.Env):
                 'max': int((self.w_max - value) / self.w_step)
             }
         return wl
+
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+
+        max_tries = 20
+        for attempt in range(max_tries):
+            if self.pm_node.kill_planner():
+                break
+
+            if attempt < max_tries - 1:
+                time.sleep(1)
+        else:
+            raise RuntimeError(f'Failed to stop planner after {max_tries} attempts.')
+
+        time.sleep(1)
+        
+        for attempt in range(max_tries):
+            if self.pm_node.kill_bringup():
+                break
+
+            if attempt < max_tries - 1:
+                time.sleep(1)
+        else:
+            raise RuntimeError(f'Failed to stop bringup after {max_tries} attempts.')
+
+        time.sleep(2)
+
+        for attempt in range(max_tries):
+            if self.pm_node.run_bringup():
+                break
+
+            if attempt < max_tries - 1:
+                time.sleep(1)
+        else:
+            raise RuntimeError(f'Failed to start bringup after {max_tries} attempts.')
