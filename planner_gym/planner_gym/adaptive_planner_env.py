@@ -12,10 +12,12 @@ from typing import Optional
 from rclpy.executors import MultiThreadedExecutor
 from planner_gym.sync_subscriber import SyncSubscriber
 from planner_gym.process_manager import ProcessManager
+from planner_gym.weight_publisher import WeightPublisher
 
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from planner_interfaces.msg import Metrics
+from planner_interfaces.msg import DynamicWeights
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -29,10 +31,10 @@ class AdaptivePlannerEnv(gym.Env):
         self.w_max = 10.0
         ##############################
 
+        # Load default values
         self.scan : Optional[LaserScan] = None
         self.odom : Optional[Odometry] = None
         self.metrics : Optional[Metrics] = None
-
 
         yaml_file = os.path.join(
             get_package_share_directory('ros2_dwa_pso'),
@@ -50,23 +52,31 @@ class AdaptivePlannerEnv(gym.Env):
             'w_min': -params['limits.max_vel.angular']
         }
         
-        weights = {
+        self.weights_def = {
             'w_head': params['heading_weight'],
             'w_vel': params['velocity_weight'],
             'w_prog': params['progress_weight'],
             'w_clear': params['clearence_weight']
         }
 
-        act_limits = self._calculate_action_limits(weights)
+        self.weights = self.weights_def
 
+        act_limits = self._calculate_action_limits(self.weights_def)
+
+        # Load ROS nodes
         rclpy.init(args=None)
 
-        self.ss_node = SyncSubscriber()
-        self.pm_node = ProcessManager()
+        self.ss_node: SyncSubscriber = SyncSubscriber()
+        self.pm_node: ProcessManager = ProcessManager()
+        self.wp_node: WeightPublisher = WeightPublisher()
+
+        # Set init weights for publisher node
+        self.wp_node.weights = self._get_weights_msg(self.weights)
 
         self.executor = MultiThreadedExecutor()
         self.executor.add_node(self.ss_node)
         self.executor.add_node(self.pm_node)
+        self.executor.add_node(self.wp_node)
 
         self.executor_thread = threading.Thread(
             target = self.executor.spin,
@@ -135,7 +145,7 @@ class AdaptivePlannerEnv(gym.Env):
         )
 
     def _calculate_action_limits(self, w: dict) -> dict:
-        # Lowest possible weights: action step s
+        # Lowest possible weights: weight step s
         # Reduction limit for weight w: -(w/s-1)
         wl = dict()
         for key, value in w.items():
@@ -203,6 +213,10 @@ class AdaptivePlannerEnv(gym.Env):
             'range_min': min(self.scan.ranges),
         }
 
+    def _get_weights_msg(self, w_dict: dict) -> DynamicWeights:
+        return DynamicWeights(
+            **{key: float(value) for key, value in w_dict.items()}
+        )
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
 
