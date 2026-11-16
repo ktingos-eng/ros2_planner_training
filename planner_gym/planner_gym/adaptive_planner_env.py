@@ -29,6 +29,8 @@ class AdaptivePlannerEnv(gym.Env):
         self.w_step = 0.1
         self.w_min = 0.1
         self.w_max = 10.0
+        self.step_time = 2.0
+        self.thr_cost = 80
         ##############################
 
         # Load default values
@@ -43,20 +45,20 @@ class AdaptivePlannerEnv(gym.Env):
 
         with io.open(yaml_file,'r') as stream:
             params = yaml.safe_load(stream)
-            params = params['dwa_pso_planner']['ros__parameters']
+            self.params = params['dwa_pso_planner']['ros__parameters']
 
         obs_limits = {
-            'v_max': params['limits.max_vel.linear'],
+            'v_max': self.params['limits.max_vel.linear'],
             'v_min': 0.0,
-            'w_max': params['limits.max_vel.angular'],
-            'w_min': -params['limits.max_vel.angular']
+            'w_max': self.params['limits.max_vel.angular'],
+            'w_min': -self.params['limits.max_vel.angular']
         }
         
         self.weights_def = {
-            'w_head': params['heading_weight'],
-            'w_vel': params['velocity_weight'],
-            'w_prog': params['progress_weight'],
-            'w_clear': params['clearence_weight']
+            'w_head': self.params['heading_weight'],
+            'w_vel': self.params['velocity_weight'],
+            'w_prog': self.params['progress_weight'],
+            'w_clear': self.params['clearence_weight']
         }
 
         self.weights = self.weights_def
