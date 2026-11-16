@@ -202,7 +202,6 @@ class AdaptivePlannerEnv(gym.Env):
             }
 
     def _get_info(self):
-
         if (self.odom is None) or (self.metrics is None):
             return None
 
@@ -219,6 +218,32 @@ class AdaptivePlannerEnv(gym.Env):
         return DynamicWeights(
             **{key: float(value) for key, value in w_dict.items()}
         )
+
+    def _get_reward(self, obs, info):
+        terminated: bool = False
+        turncated: bool = False
+        if obs['distance'] <= self.params['eps_goal']:
+            terminated = True
+            return 100, terminated, turncated
+        elif self._robot_stuck(info):
+            turncated = False
+            return -30, terminated, turncated
+
+        return 0, terminated, turncated
+
+    def _robot_stuck(self, info) -> bool:
+        if info is None:
+            return None
+
+        # Check collision
+        if info['occupancy'] >= self.thr_cost:
+            return True
+        
+        return False
+
+    def navigate(self):
+        if self.pm_node._bringup is not None:
+            self.pm_node.run_planner()
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
 
