@@ -283,3 +283,24 @@ class AdaptivePlannerEnv(gym.Env):
         info = self._get_info()
 
         return obs, info
+
+    def step(self, action):
+        weights_msg: Optional[DynamicWeights] = None
+
+        # Calculate and set new weights
+        for key, w_def in self.weights_def.items():
+            akey = "n_" + key[2:]
+            n = action[akey]
+            self.weights[key] = w_def + n * self.w_step
+
+        weights_msg = self._get_weights_msg(self.weights)
+        self.wp_node.set_weights(weights_msg)
+
+        time.sleep(self.step_time) # Wait for selected time
+
+        observation = self._get_obs()
+        info = self._get_info()
+
+        reward, terminated, turncated = self._get_reward(observation, info)
+
+        return observation, reward, terminated, turncated, info
