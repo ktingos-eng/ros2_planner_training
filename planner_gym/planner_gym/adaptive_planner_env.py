@@ -26,12 +26,19 @@ class AdaptivePlannerEnv(gym.Env):
         super().__init__()
 
         ######### TBD PARAMS #########
-        self.w_step = 0.1
-        self.w_min = 0.1
-        self.w_max = 10.0
-        self.step_time = 2.0
-        self.thr_cost = 80
+        self._w_step = 0.1
+        self._w_min = 0.1
+        self._w_max = 10.0
+        self._step_time = 2.0
+        self._thr_cost = 80
+
+        # Stagnation control
+        self._eps_v = 1e-3
+        self._stag_timeout = 10.0
         ##############################
+
+        # Init stagnation flag and timer
+        self._stag_start = None
 
         # Load default values
         self.scan : Optional[LaserScan] = None
@@ -152,8 +159,8 @@ class AdaptivePlannerEnv(gym.Env):
         wl = dict()
         for key, value in w.items():
             wl[key] = {
-                'min': -int((value - self.w_min) / self.w_step),
-                'max': int((self.w_max - value) / self.w_step)
+                'min': -int((value - self._w_min) / self._w_step),
+                'max': int((self._w_max - value) / self._w_step)
             }
         return wl
 
@@ -219,27 +226,39 @@ class AdaptivePlannerEnv(gym.Env):
             **{key: float(value) for key, value in w_dict.items()}
         )
 
-    def _get_reward(self, obs, info):
-        terminated: bool = False
-        turncated: bool = False
+    # Returns reward value + terminated flag
+    def _get_reward(self, obs, info) -> tuple[float, bool]:
         if obs['distance'] <= self.params['eps_goal']:
-            terminated = True
-            return 100, terminated, turncated
-        elif self._robot_stuck(info):
-            turncated = False
-            return -30, terminated, turncated
+            return 100.0, True
+        
+        if self._collision(info) or self._stagnation(info):
+            return -30.0, True
 
-        return 0, terminated, turncated
+        return 0.0, False
 
-    def _robot_stuck(self, info) -> bool:
+    def _collision(self, info) -> bool:
+        if info is None:
+            return None
+        
+        # Check collision
+        return bool(info['occupancy'] >= self._thr_cost)
+
+    def _stagnation(self, info) -> bool:
         if info is None:
             return None
 
-        # Check collision
-        if info['occupancy'] >= self.thr_cost:
-            return True
-        
-        return False
+        # Robot moving --> not stagnated
+        if abs(info['v']) > self._eps_v:
+            self._stag_start = None
+            return False
+
+        # Zero vel --> Init stagnation timer
+        now = time.monotonic()
+        if self._stag_start is None:
+            self._stag_start = now
+
+        return bool(now - self._stag_start >= self._stag_timeout)
+
 
     def navigate(self):
         if self.pm_node._bringup is not None:
@@ -291,16 +310,17 @@ class AdaptivePlannerEnv(gym.Env):
         for key, w_def in self.weights_def.items():
             akey = "n_" + key[2:]
             n = action[akey]
-            self.weights[key] = w_def + n * self.w_step
+            self.weights[key] = w_def + n * self._w_step
 
         weights_msg = self._get_weights_msg(self.weights)
         self.wp_node.set_weights(weights_msg)
 
-        time.sleep(self.step_time) # Wait for selected time
+        time.sleep(self._step_time) # Wait for selected time
 
         observation = self._get_obs()
         info = self._get_info()
 
-        reward, terminated, turncated = self._get_reward(observation, info)
+        reward, terminated = self._get_reward(observation, info)
+        turncated = False
 
         return observation, reward, terminated, turncated, info
