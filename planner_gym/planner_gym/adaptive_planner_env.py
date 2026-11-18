@@ -37,7 +37,7 @@ class AdaptivePlannerEnv(gym.Env):
         self._stag_timeout = 10.0
         ##############################
 
-        # Init stagnation flag and timer
+        # Init stagnation time as None
         self._stag_start = None
 
         # Load default values
@@ -153,6 +153,10 @@ class AdaptivePlannerEnv(gym.Env):
             }
         )
 
+    def __del__(self):
+        self._total_shutdown()
+        self.executor.shutdown()
+
     def _calculate_action_limits(self, w: dict) -> dict:
         # Lowest possible weights: weight step s
         # Reduction limit for weight w: -(w/s-1)
@@ -170,6 +174,26 @@ class AdaptivePlannerEnv(gym.Env):
         self.metrics = self.ss_node.metrics
 
         if self.metrics is None:
+            dis_goal, theta_goal = self._calculate_metrics()
+            return {
+                'velocity': np.array(
+                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                    dtype=np.float32
+                ),
+                'heading': np.array(
+                    [theta_goal],
+                    dtype=np.float32
+                ),
+                'distance': np.array(
+                    [dis_goal],
+                    dtype=np.float32
+                ),
+                'scan': np.array(
+                    self.scan.ranges,
+                    dtype=np.float32
+                )
+            }
+        else:
             return {
                 'velocity': np.array(
                     [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
@@ -188,38 +212,27 @@ class AdaptivePlannerEnv(gym.Env):
                     dtype=np.float32
                 )
             }
-        else:
-            return {
-                'velocity': np.array(
-                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
-                    dtype=np.float32
-                ),
-                'heading': np.array(
-                    [0.0],
-                    dtype=np.float32
-                ),
-                'distance': np.array(
-                    [5.0],
-                    dtype=np.float32
-                ),
-                'scan': np.array(
-                    self.scan.ranges,
-                    dtype=np.float32
-                )
-            }
 
     def _get_info(self):
-        if (self.odom is None) or (self.metrics is None):
-            return None
-
-        return {
-            'v': self.odom.twist.twist.linear.x,
-            'w': self.odom.twist.twist.angular.z,
-            'theta': self.metrics.theta_goal,
-            'occupancy': self.metrics.robot_clearence,
-            'goal_dis': self.metrics.dis_goal,
-            'range_min': min(self.scan.ranges),
-        }
+        if self.metrics is None:
+            dis_goal, theta_goal = self._calculate_metrics()
+            return {
+                'v': self.odom.twist.twist.linear.x,
+                'w': self.odom.twist.twist.angular.z,
+                'theta': theta_goal,
+                'occupancy': None,
+                'goal_dis': dis_goal,
+                'range_min': min(self.scan.ranges),
+            }
+        else:
+            return {
+                'v': self.odom.twist.twist.linear.x,
+                'w': self.odom.twist.twist.angular.z,
+                'theta': self.metrics.theta_goal,
+                'occupancy': self.metrics.robot_clearence,
+                'goal_dis': self.metrics.dis_goal,
+                'range_min': min(self.scan.ranges),
+            }
 
     def _get_weights_msg(self, w_dict: dict) -> DynamicWeights:
         return DynamicWeights(
@@ -238,6 +251,8 @@ class AdaptivePlannerEnv(gym.Env):
 
     def _collision(self, info) -> bool:
         if info is None:
+            return None
+        if info['occupancy'] is None:
             return None
         
         # Check collision
@@ -259,13 +274,7 @@ class AdaptivePlannerEnv(gym.Env):
 
         return bool(now - self._stag_start >= self._stag_timeout)
 
-
-    def navigate(self):
-        if self.pm_node._bringup is not None:
-            self.pm_node.run_planner()
-
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-
+    def _total_shutdown(self):
         max_tries = 20
         for attempt in range(max_tries):
             if self.pm_node.kill_planner():
@@ -289,6 +298,31 @@ class AdaptivePlannerEnv(gym.Env):
 
         time.sleep(2)
 
+    def _calculate_metrics(self) -> tuple[float, float]:
+        dx = self.params['goal_x'] - self.odom.pose.pose.position.x
+        dy = self.params['goal_y'] - self.odom.pose.pose.position.y
+        q = self.odom.pose.pose.orientation
+
+        yaw = math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y**2 + q.z**2)
+        )
+
+        dis_goal = math.hypot(dx, dy)
+        theta_goal = math.atan2(dy, dx) - yaw
+        theta_goal = math.atan2(math.sin(theta_goal), math.cos(theta_goal))
+
+        return dis_goal, theta_goal
+
+    def navigate(self):
+        if self.pm_node._bringup is not None:
+            self.pm_node.run_planner()
+
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        self._total_shutdown()
+        self.ss_node.last_sub_time = None
+
+        max_tries = 20
         for attempt in range(max_tries):
             if self.pm_node.run_bringup():
                 break
@@ -297,6 +331,18 @@ class AdaptivePlannerEnv(gym.Env):
                 time.sleep(1)
         else:
             raise RuntimeError(f'Failed to start bringup after {max_tries} attempts.')
+
+        # Wait for data to become available
+        timeout = 5.0
+        start = time.monotonic()
+        while not self.ss_node.data_available:
+            if not rclpy.ok():
+                raise RuntimeError("ROS shutdown while waiting for data")
+
+            if time.monotonic() - start >= timeout:
+                raise RuntimeError(f'Waiting for data timed out after {timeout} seconds.')
+
+            time.sleep(0.1)
 
         obs = self._get_obs()
         info = self._get_info()
@@ -321,6 +367,6 @@ class AdaptivePlannerEnv(gym.Env):
         info = self._get_info()
 
         reward, terminated = self._get_reward(observation, info)
-        turncated = False
+        truncated = False
 
-        return observation, reward, terminated, turncated, info
+        return observation, reward, terminated, truncated, info
