@@ -22,6 +22,8 @@ class WeightPublisher(Node):
             self.timer_callback
         )
 
+        self.get_logger().info("Weight Publisher registered.")
+
     # Init publish to remove timer delay
     def set_weights(self, weights: DynamicWeights):
         self.weights = weights
