@@ -177,7 +177,8 @@ class AdaptivePlannerEnv(gym.Env):
             dis_goal, theta_goal = self._calculate_metrics()
             return {
                 'velocity': np.array(
-                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                    [self.odom.twist.twist.linear.x,
+                     self.odom.twist.twist.angular.z],
                     dtype=np.float32
                 ),
                 'heading': np.array(
@@ -196,7 +197,8 @@ class AdaptivePlannerEnv(gym.Env):
         else:
             return {
                 'velocity': np.array(
-                    [self.odom.twist.twist.linear.x, self.odom.twist.twist.angular.z],
+                    [self.odom.twist.twist.linear.x,
+                     self.odom.twist.twist.angular.z],
                     dtype=np.float32
                 ),
                 'heading': np.array(
