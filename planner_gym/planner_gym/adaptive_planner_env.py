@@ -10,9 +10,9 @@ import gymnasium as gym
 
 from typing import Optional
 from rclpy.executors import MultiThreadedExecutor
-from planner_gym.sync_subscriber import SyncSubscriber
-from planner_gym.process_manager import ProcessManager
-from planner_gym.weight_publisher import WeightPublisher
+from ros2_gym_bridge.sync_subscriber import SyncSubscriber
+from ros2_gym_bridge.weight_publisher import WeightPublisher
+from ros2_gym_bridge.process_manager import ProcessManager
 
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan

@@ -13,6 +13,7 @@
   <depend>tbot3_interfaces</depend>
   <depend>message_filters</depend>
   <depend>planner_interfaces</depend>
+  <depend>ros2_gym_bridge</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
