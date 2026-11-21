@@ -33,12 +33,15 @@ class AdaptivePlannerEnv(gym.Env):
         self._thr_cost = 80
 
         # Stagnation control
-        self._eps_v = 1e-3
-        self._stag_timeout = 10.0
+        self._EPS_V = 1e-3
+        self._STAG_TIMEOUT = 10.0
+
+        self._MAX_STEPS = 300
         ##############################
 
         # Init stagnation time as None
         self._stag_start = None
+        self.step_count = 0
 
         # Load default values
         self.scan : Optional[LaserScan] = None
@@ -61,16 +64,16 @@ class AdaptivePlannerEnv(gym.Env):
             'w_min': -self.params['limits.max_vel.angular']
         }
         
-        self.weights_def = {
+        self.WEIGHTS_DEF = {
             'w_head': self.params['heading_weight'],
             'w_vel': self.params['velocity_weight'],
             'w_prog': self.params['progress_weight'],
             'w_clear': self.params['clearence_weight']
         }
 
-        self.weights = self.weights_def
+        self.weights = self.WEIGHTS_DEF
 
-        act_limits = self._calculate_action_limits(self.weights_def)
+        act_limits = self._calculate_action_limits(self.WEIGHTS_DEF)
 
         # Load ROS nodes
         rclpy.init(args=None)
@@ -265,7 +268,7 @@ class AdaptivePlannerEnv(gym.Env):
             return None
 
         # Robot moving --> not stagnated
-        if abs(info['v']) > self._eps_v:
+        if abs(info['v']) > self._EPS_V:
             self._stag_start = None
             return False
 
@@ -274,7 +277,7 @@ class AdaptivePlannerEnv(gym.Env):
         if self._stag_start is None:
             self._stag_start = now
 
-        return bool(now - self._stag_start >= self._stag_timeout)
+        return bool(now - self._stag_start >= self._STAG_TIMEOUT)
 
     def _total_shutdown(self):
         max_tries = 20
@@ -352,10 +355,14 @@ class AdaptivePlannerEnv(gym.Env):
         return obs, info
 
     def step(self, action):
+        # Start of episode --> start navigation
+        if self.step_count == 0:
+            self.navigate()
+
         weights_msg: Optional[DynamicWeights] = None
 
         # Calculate and set new weights
-        for key, w_def in self.weights_def.items():
+        for key, w_def in self.WEIGHTS_DEF.items():
             akey = "n_" + key[2:]
             n = action[akey]
             self.weights[key] = w_def + n * self._w_step
@@ -369,6 +376,11 @@ class AdaptivePlannerEnv(gym.Env):
         info = self._get_info()
 
         reward, terminated = self._get_reward(observation, info)
-        truncated = False
+
+        self.step_count += 1
+        if self.step_count >= self._MAX_STEPS:
+            truncated = True
+        else:
+            truncated = False
 
         return observation, reward, terminated, truncated, info
