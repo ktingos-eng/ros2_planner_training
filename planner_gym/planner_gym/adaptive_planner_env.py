@@ -65,7 +65,7 @@ class AdaptivePlannerEnv(gym.Env):
             'w_clear': self.params['clearence_weight']
         }
 
-        self.weights = self._WEIGHTS_DEF
+        self.weights = self._WEIGHTS_DEF.copy()
 
         # Load ROS nodes
         rclpy.init(args=None)
