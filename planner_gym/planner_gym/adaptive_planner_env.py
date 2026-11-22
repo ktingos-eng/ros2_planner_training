@@ -9,6 +9,7 @@ import numpy as np
 import gymnasium as gym
 
 from typing import Optional
+from numpy.typing import NDArray
 from rclpy.executors import MultiThreadedExecutor
 from ros2_gym_bridge.sync_subscriber import SyncSubscriber
 from ros2_gym_bridge.weight_publisher import WeightPublisher
@@ -56,24 +57,15 @@ class AdaptivePlannerEnv(gym.Env):
         with io.open(yaml_file,'r') as stream:
             params = yaml.safe_load(stream)
             self.params = params['dwa_pso_planner']['ros__parameters']
-
-        obs_limits = {
-            'v_max': self.params['limits.max_vel.linear'],
-            'v_min': 0.0,
-            'w_max': self.params['limits.max_vel.angular'],
-            'w_min': -self.params['limits.max_vel.angular']
-        }
         
-        self.WEIGHTS_DEF = {
+        self._WEIGHTS_DEF = {
             'w_head': self.params['heading_weight'],
             'w_vel': self.params['velocity_weight'],
             'w_prog': self.params['progress_weight'],
             'w_clear': self.params['clearence_weight']
         }
 
-        self.weights = self.WEIGHTS_DEF
-
-        act_limits = self._calculate_action_limits(self.WEIGHTS_DEF)
+        self.weights = self._WEIGHTS_DEF
 
         # Load ROS nodes
         rclpy.init(args=None)
@@ -97,15 +89,23 @@ class AdaptivePlannerEnv(gym.Env):
 
         self.executor_thread.start()
 
+        # Observation Space
+        VEL_LIMITS = {
+            'v_max': self.params['limits.max_vel.linear'],
+            'v_min': 0.0,
+            'w_max': self.params['limits.max_vel.angular'],
+            'w_min': -self.params['limits.max_vel.angular']
+        }
+
         self.observation_space = gym.spaces.Dict(
             {
                 'velocity': gym.spaces.Box(
                     low=np.array(
-                        [obs_limits['v_min'], obs_limits['w_min']],
+                        [VEL_LIMITS['v_min'], VEL_LIMITS['w_min']],
                         dtype=np.float32
                     ), 
                     high=np.array(
-                        [obs_limits['v_max'], obs_limits['w_max']],
+                        [VEL_LIMITS['v_max'], VEL_LIMITS['w_max']],
                         dtype=np.float32
                     ),
                     dtype=np.float32 
