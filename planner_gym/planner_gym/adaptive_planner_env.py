@@ -154,11 +154,15 @@ class AdaptivePlannerEnv(gym.Env):
     def _calculate_action_limits(self, w: dict) -> dict:
         # Lowest possible weights: weight step s
         # Reduction limit for weight w: -(w/s-1)
-        wl = dict()
+        min_tick = round(self._w_min / self._w_step)
+        max_tick = round(self._w_max / self._w_step)
+
+        wl = {}
         for key, value in w.items():
+            base_tick = round(value / self._w_step)
             wl[key] = {
-                'min': -math.ceil((value - self._w_min) / self._w_step),
-                'max': math.ceil((self._w_max - value) / self._w_step)
+                'min': min_tick - base_tick,
+                'max': max_tick - base_tick,
             }
         return wl
 
