@@ -363,10 +363,6 @@ class AdaptivePlannerEnv(gym.Env):
         return obs, info
 
     def step(self, action):
-        # Start of episode --> start navigation
-        if self.step_count == 0:
-            self.navigate()
-
         weights_msg: Optional[DynamicWeights] = None
 
         action_mapped = self._map_actions(action)
@@ -377,6 +373,10 @@ class AdaptivePlannerEnv(gym.Env):
 
         weights_msg = self._get_weights_msg(self.weights)
         self.wp_node.set_weights(weights_msg)
+
+        # Start of episode --> start navigation
+        if self.step_count == 0:
+            self.navigate()
 
         time.sleep(self._step_time) # Wait for selected time
 
