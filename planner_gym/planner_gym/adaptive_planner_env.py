@@ -319,6 +319,15 @@ class AdaptivePlannerEnv(gym.Env):
 
         return dis_goal, theta_goal
 
+    def _map_actions(self, action: NDArray[np.int64]) -> dict:
+        it = 0
+        n_act = dict()
+        for key, lims in self._ACT_LIMITS.items():
+            n_act[key] = lims['min'] + action[it]
+            it+=1
+
+        return n_act
+
     def navigate(self):
         if self.pm_node._bringup is not None:
             self.pm_node.run_planner()
