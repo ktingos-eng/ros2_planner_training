@@ -353,6 +353,10 @@ class AdaptivePlannerEnv(gym.Env):
 
             time.sleep(0.1)
 
+        # Reset count & stagnation starter
+        self.step_count = 0
+        self._stag_start = None
+
         obs = self._get_obs()
         info = self._get_info()
 
