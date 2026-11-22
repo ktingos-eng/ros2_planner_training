@@ -166,8 +166,8 @@ class AdaptivePlannerEnv(gym.Env):
         wl = dict()
         for key, value in w.items():
             wl[key] = {
-                'min': -int((value - self._w_min) / self._w_step),
-                'max': int((self._w_max - value) / self._w_step)
+                'min': -math.ceil((value - self._w_min) / self._w_step),
+                'max': math.ceil((self._w_max - value) / self._w_step)
             }
         return wl
 
