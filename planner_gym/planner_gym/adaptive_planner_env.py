@@ -131,29 +131,20 @@ class AdaptivePlannerEnv(gym.Env):
             }
         )
 
-        self.action_space = gym.spaces.Dict(
-            {
-                'n_head': gym.spaces.Discrete(
-                    n=act_limits['w_head']['max']-act_limits['w_head']['min'],
-                    start=act_limits['w_head']['min'],
-                    dtype=np.int32
-                ),
-                'n_vel': gym.spaces.Discrete(
-                    n=act_limits['w_vel']['max']-act_limits['w_vel']['min'],
-                    start=act_limits['w_vel']['min'],
-                    dtype=np.int32
-                ),
-                'n_prog': gym.spaces.Discrete(
-                    n=act_limits['w_prog']['max']-act_limits['w_prog']['min'],
-                    start=act_limits['w_prog']['min'],
-                    dtype=np.int32
-                ),
-                'n_clear': gym.spaces.Discrete(
-                    n=act_limits['w_clear']['max']-act_limits['w_clear']['min'],
-                    start=act_limits['w_clear']['min'],
-                    dtype=np.int32
-                )
-            }
+        # Action Space
+        self._ACT_LIMITS = self._calculate_action_limits(self._WEIGHTS_DEF)
+
+        min_offsets = np.array(
+            [self._ACT_LIMITS[key]['min'] for key in self._ACT_LIMITS.keys()],
+            dtype=np.int64
+        )
+        max_offsets = np.array(
+            [self._ACT_LIMITS[key]['max'] for key in self._ACT_LIMITS.keys()],
+            dtype=np.int64
+        )
+
+        self.action_space = gym.spaces.MultiDiscrete(
+            max_offsets - min_offsets + 1
         )
 
     def __del__(self):
@@ -370,11 +361,11 @@ class AdaptivePlannerEnv(gym.Env):
 
         weights_msg: Optional[DynamicWeights] = None
 
+        action_mapped = self._map_actions(action)
         # Calculate and set new weights
-        for key, w_def in self.WEIGHTS_DEF.items():
-            akey = "n_" + key[2:]
-            n = action[akey]
-            self.weights[key] = w_def + n * self._w_step
+        for key, w0 in self._WEIGHTS_DEF.items():
+            n = action_mapped[key]
+            self.weights[key] = w0 + n * self._w_step
 
         weights_msg = self._get_weights_msg(self.weights)
         self.wp_node.set_weights(weights_msg)
