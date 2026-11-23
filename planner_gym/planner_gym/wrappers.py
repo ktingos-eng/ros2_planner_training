@@ -1,4 +1,6 @@
 import gymnasium as gym
+from functools import wraps
+from collections.abc import Callable
 
 '''
 Rollout Boundary Truncation (RBT) Wrapper
@@ -25,4 +27,12 @@ class RbtWrapper(gym.Wrapper):
                 truncated = True
                 info = {**info, "rollout_boundary": True}
 
-        return obs, reward, terminated, truncated
+        return obs, reward, terminated, truncated, info
+
+
+def with_rollout_boundary(fun: Callable[[], gym.Env]):
+    @wraps(fun)
+    def create_env_with_rbt(rollout_steps: int = 600):
+        env = fun()
+        return RbtWrapper(env, rollout_steps=rollout_steps)
+    return create_env_with_rbt
