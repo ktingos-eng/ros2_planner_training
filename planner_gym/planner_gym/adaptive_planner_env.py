@@ -148,8 +148,7 @@ class AdaptivePlannerEnv(gym.Env):
         )
 
     def __del__(self):
-        self._total_shutdown()
-        self.executor.shutdown()
+        self.close()
 
     def _calculate_action_limits(self, w: dict) -> dict:
         # Lowest possible weights: weight step s
@@ -392,3 +391,12 @@ class AdaptivePlannerEnv(gym.Env):
             truncated = False
 
         return observation, reward, terminated, truncated, info
+
+    def close(self) -> None:
+        try:
+            self._total_shutdown()
+        except:
+            raise OSError("Could not shutdown the environment")
+        finally:
+            self.executor.shutdown()
+            exit()
