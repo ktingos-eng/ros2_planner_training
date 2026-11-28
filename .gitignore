@@ -66,3 +66,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# PyPkg
+*testing.py
+__pycache__/
+*.pyc
+*.egg-info/
